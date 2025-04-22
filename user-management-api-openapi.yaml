@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: User Management API
+  version: "1.0"
+  description: API RESTful para la gestión de usuarios.
+servers:
+  - url: http://localhost:8080
+paths:
+  /users:
+    post:
+      summary: Registro de usuario
+      description: Crea un nuevo usuario en el sistema.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+            examples:
+              ejemplo:
+                value:
+                  name: "Juan Perez"
+                  email: "juan@perez.org"
+                  password: "hunter2"
+                  phones:
+                    - number: "1234567"
+                      citycode: "1"
+                      contrycode: "57"
+      responses:
+        '201':
+          description: Usuario creado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Error de validación (por ejemplo, formato de correo inválido o correo ya registrado).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                    example: "El correo no tiene un formato válido (ej: aaaaaaa@dominio.cl)"
+        '500':
+          description: Error interno del servidor.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                    example: "Ocurrió un error interno"
+components:
+  schemas:
+    UserRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          example: "Juan Perez"
+        email:
+          type: string
+          format: email
+          example: "juan@perez.org"
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        password:
+          type: string
+          example: "hunter2"
+        phones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Phone'
+    Phone:
+      type: object
+      required:
+        - number
+        - citycode
+        - contrycode
+      properties:
+        number:
+          type: string
+          example: "1234567"
+        citycode:
+          type: string
+          example: "1"
+        contrycode:
+          type: string
+          example: "57"
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "e2a5f0d8-3d3b-4d0a-9a8b-3d7a0f7e0c99"
+        created:
+          type: string
+          format: date-time
+          example: "2025-03-17T14:00:00Z"
+        modified:
+          type: string
+          format: date-time
+          example: "2025-03-17T14:00:00Z"
+        lastLogin:
+          type: string
+          format: date-time
+          example: "2025-03-17T14:00:00Z"
+        token:
+          type: string
+          example: "dummy-token"
+        isActive:
+          type: boolean
+          example: true
