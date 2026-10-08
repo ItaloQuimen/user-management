@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.lang.reflect.Field;
 import java.util.Optional;
@@ -48,6 +49,10 @@ class UserServiceImplTest {
 
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
+            assertEquals(request.getName(), user.getName());
+            assertEquals(request.getEmail(), user.getEmail());
+            assertNotEquals(request.getPassword(), user.getPassword());
+            assertTrue(new BCryptPasswordEncoder().matches(request.getPassword(), user.getPassword()));
             Field idField = User.class.getDeclaredField("id");
             idField.setAccessible(true);
             idField.set(user, "1234");
