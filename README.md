@@ -85,6 +85,29 @@ Ejecutar `clean verify` desde Maven o mediante el wrapper en la terminal con Jav
 
 JJWT utiliza los módulos `jjwt-api`, `jjwt-impl` y `jjwt-jackson`. Su adaptador JSON usa Jackson 2 internamente; la API conserva Jackson 3. La configuración modular y el mínimo de clave HS512 se describen en la [documentación oficial de JJWT 0.13.0](https://github.com/jwtk/jjwt/tree/0.13.0#installation).
 
+## Modos de ejecución y consola H2
+
+El arranque sin el perfil `dev` desactiva explícitamente la consola H2 y la impresión de SQL, incluso con DevTools en el classpath. El registro público, los errores JSON y Swagger siguen disponibles. La base continúa en memoria, creada con `schema.sql` y validada por JPA.
+
+Para habilitar las herramientas locales de desarrollo, configurar primero la clave JWT como se explica arriba y ejecutar desde `user-management-api`:
+
+```powershell
+java -jar .\target\user-management-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
+```
+
+En IntelliJ, añadir `--spring.profiles.active=dev` en **Program arguments** de la configuración de ejecución. Para volver al modo normal, quitar ese argumento y cualquier activación de `dev` en **Active profiles** o `SPRING_PROFILES_ACTIVE`. Mantener estas opciones en la configuración local del IDE.
+
+El perfil `dev` liga el servidor a `127.0.0.1`, habilita la impresión de SQL y permite la consola en `http://127.0.0.1:8080/h2-console/`. El acceso remoto de la consola permanece deshabilitado. Los frames `SAMEORIGIN` y los ajustes de seguridad de H2 se limitan a la consola en este perfil; las respuestas de la API y Swagger conservan `X-Frame-Options: DENY`.
+
+Para conectar desde la consola, usar estos datos de la base local del mismo proceso:
+
+- Driver Class: `org.h2.Driver`.
+- JDBC URL: `jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE`.
+- User Name: `sa`.
+- Password: vacío.
+
+Tras registrar un usuario mediante la API, conectar y ejecutar `SELECT id, name, email FROM users;` y `SELECT number, citycode, contrycode FROM phones;` para comprobar sus datos. No usar una URL de base en archivo ni abrir otra consola H2 en un proceso separado: la base en memoria pertenece a esta aplicación. La consola devuelve HTML como herramienta auxiliar; el contrato JSON de la API se conserva. Al detener el proceso se pierden los datos.
+
 ## Persistencia
 
 El esquema H2 se crea al arrancar mediante [schema.sql](user-management-api/src/main/resources/schema.sql). Spring ejecuta el script antes de inicializar JPA; Hibernate valida las tablas y sus mapeos con `spring.jpa.hibernate.ddl-auto=validate`. La base está en memoria y sus datos desaparecen al terminar el proceso.
