@@ -1,19 +1,30 @@
 package com.imqh.usermanagementapi.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public class UserResponse {
 
+    @Schema(description = "UUID del usuario.", format = "uuid", example = "e2a5f0d8-3d3b-4d0a-9a8b-3d7a0f7e0c99", requiredMode = Schema.RequiredMode.REQUIRED)
     private String id;
+    @Schema(example = "Juan Perez", requiredMode = Schema.RequiredMode.REQUIRED)
     private String name;
+    @Schema(description = "Correo almacenado sin normalización.", example = "juan@p.cl", requiredMode = Schema.RequiredMode.REQUIRED)
     private String email;
+    @Schema(description = "Teléfonos registrados; puede estar vacía.", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<PhoneResponse> phones;
+    @Schema(implementation = String.class, description = "Fecha local ISO-8601 sin zona ni offset. Igual a modified y last_login al registrar.",
+            example = "2026-10-09T14:00:00.123456789", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime created;
+    @Schema(implementation = String.class, description = "Fecha local ISO-8601 sin zona ni offset. Igual a created al registrar.",
+            example = "2026-10-09T14:00:00.123456789", requiredMode = Schema.RequiredMode.REQUIRED)
     private LocalDateTime modified;
     private LocalDateTime lastLogin;
+    @Schema(description = "JWT completo firmado con HS512 y persistido. Contiene sub (UUID), email, iat y exp. No habilita autenticación en esta API.",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private String token;
     private boolean active;
 
@@ -66,6 +77,8 @@ public class UserResponse {
     }
 
     @JsonProperty("last_login")
+    @Schema(implementation = String.class, description = "Fecha local ISO-8601 sin zona ni offset. Igual a created al registrar; no representa un flujo de login.",
+            example = "2026-10-09T14:00:00.123456789", requiredMode = Schema.RequiredMode.REQUIRED)
     public LocalDateTime getLastLogin() {
         return lastLogin;
     }
@@ -83,6 +96,7 @@ public class UserResponse {
     }
 
     @JsonProperty("isactive")
+    @Schema(description = "Estado inicial del usuario: true.", example = "true", requiredMode = Schema.RequiredMode.REQUIRED)
     public boolean isActive() {
         return active;
     }

@@ -1,115 +1,193 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: User Management API
+  description: Registro público de usuarios con persistencia en H2 en memoria. Emite
+    y almacena un JWT HS512; no implementa login ni autorización mediante el token.
+    Los errores de la API siempre contienen únicamente mensaje en JSON.
   version: "1.0"
-  description: API RESTful para la gestión de usuarios.
 servers:
-  - url: http://localhost:8080
+- url: /
+  description: Servidor donde se ejecuta la aplicación
 paths:
   /users:
     post:
-      summary: Registro de usuario
-      description: Crea un nuevo usuario en el sistema.
+      tags:
+      - Usuarios
+      summary: Registrar un usuario
+      description: "Registro público, sin autenticación. Persiste usuario, teléfonos\
+        \ y JWT en una transacción. phones es obligatorio, pero admite una lista vací\
+        a. La contraseña se valida con app.password.regex; la política predeterminada\
+        \ exige ocho o más caracteres alfanuméricos ASCII, al menos una letra y un\
+        \ dígito."
       operationId: registerUser
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserRequest'
-            examples:
-              ejemplo:
-                value:
-                  name: "Juan Perez"
-                  email: "juan@p.cl"
-                  password: "Password1"
-                  phones:
-                    - number: "1234567"
-                      citycode: "1"
-                      contrycode: "57"
+              $ref: "#/components/schemas/UserRequest"
+        required: true
       responses:
-        '201':
-          description: Usuario creado exitosamente.
+        "201":
+          description: Usuario creado. Las tres fechas locales iniciales son iguales.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '400':
-          description: Datos inválidos, JSON malformado o cuerpo ausente.
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          description: "Datos inválidos, JSON malformado o cuerpo ausente."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
-        '409':
-          description: Correo duplicado. Mensaje exacto «El correo ya registrado».
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                ejemplo:
+                  description: ejemplo
+                  value:
+                    mensaje: La contraseña no cumple con el formato requerido
+        "409":
+          description: "Correo duplicado, detectado antes o durante la escritura.\
+            \ Sin normalización del correo."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
-        '404':
-          description: Ruta inexistente.
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                ejemplo:
+                  description: ejemplo
+                  value:
+                    mensaje: El correo ya registrado
+        "404":
+          description: "Error global de la API: ruta inexistente; no es un resultado\
+            \ del registro válido."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
-        '405':
-          description: Método no admitido.
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                ejemplo:
+                  description: ejemplo
+                  value:
+                    mensaje: La ruta solicitada no existe
+        "405":
+          description: "Error global de la API: método no admitido, por ejemplo GET\
+            \ /users."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
-        '406':
-          description: Formato de respuesta solicitado incompatible; el error se devuelve en JSON.
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                ejemplo:
+                  description: ejemplo
+                  value:
+                    mensaje: El método solicitado no está permitido
+        "406":
+          description: Accept incompatible; el cuerpo del error sigue siendo JSON.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
-        '415':
-          description: Contenido de entrada no admitido.
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                ejemplo:
+                  description: ejemplo
+                  value:
+                    mensaje: La respuesta solo está disponible en JSON
+        "415":
+          description: Content-Type incompatible con JSON.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
-        '500':
-          description: Error interno del servidor, sin detalles internos.
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                ejemplo:
+                  description: ejemplo
+                  value:
+                    mensaje: El contenido de la solicitud debe ser JSON
+        "500":
+          description: "Error inesperado, incluida integridad distinta del correo\
+            \ duplicado. Sin detalles internos."
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                $ref: "#/components/schemas/ApiError"
+              examples:
+                ejemplo:
+                  description: ejemplo
+                  value:
+                    mensaje: Ocurrió un error interno
 components:
   schemas:
+    ApiError:
+      type: object
+      additionalProperties: false
+      description: "Error de la API con un único mensaje no vacío, sin detalles internos."
+      properties:
+        mensaje:
+          type: string
+          example: El correo ya registrado
+          minLength: 1
+      required:
+      - mensaje
+    PhoneRequest:
+      type: object
+      properties:
+        number:
+          type: string
+          description: Número obligatorio con texto no blanco; no se exige formato
+            numérico.
+          example: "1234567"
+          minLength: 1
+        citycode:
+          type: string
+          description: Código de ciudad obligatorio con texto no blanco; no se exige
+            formato numérico.
+          example: "1"
+          minLength: 1
+        contrycode:
+          type: string
+          description: Código de país obligatorio con texto no blanco. Se conserva
+            la grafía contrycode; no se exige formato numérico.
+          example: "57"
+          minLength: 1
+      required:
+      - citycode
+      - contrycode
+      - number
     UserRequest:
       type: object
-      required:
-        - name
-        - email
-        - password
-        - phones
       properties:
         name:
           type: string
-          description: Texto obligatorio no blanco.
-          example: "Juan Perez"
+          description: Nombre obligatorio con texto no blanco.
+          example: Juan Perez
+          minLength: 1
         email:
           type: string
-          format: email
-          example: "juan@p.cl"
+          description: "Correo obligatorio, validado mediante la expresión regular\
+            \ indicada. Se conserva sin normalización."
+          example: juan@p.cl
+          minLength: 1
           pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
         password:
           type: string
-          description: Política configurable con app.password.regex; por defecto, mínimo ocho caracteres alfanuméricos, una letra y un dígito.
-          example: "Password1"
+          description: "Texto no blanco validado con app.password.regex. Por defecto:\
+            \ al menos ocho caracteres alfanuméricos ASCII, una letra y un dígito.\
+            \ La política puede cambiar; no hay un patrón fijo en este esquema."
+          example: Password1
+          minLength: 1
+          writeOnly: true
         phones:
           type: array
-          description: Lista obligatoria; puede estar vacía y no admite elementos nulos.
+          description: "Lista obligatoria y no nula. Admite [] y no admite elementos\
+            \ nulos; cada teléfono se valida en cascada."
           items:
-            $ref: '#/components/schemas/Phone'
-    Phone:
-      type: object
+            $ref: "#/components/schemas/PhoneRequest"
       required:
-        - number
-        - citycode
-        - contrycode
+      - email
+      - name
+      - password
+      - phones
+    PhoneResponse:
+      type: object
       properties:
         number:
           type: string
@@ -120,47 +198,60 @@ components:
         contrycode:
           type: string
           example: "57"
+      required:
+      - citycode
+      - contrycode
+      - number
     UserResponse:
       type: object
-      required: [id, name, email, phones, created, modified, last_login, token, isactive]
       properties:
-        name:
-          type: string
-          example: "Juan Perez"
-        email:
-          type: string
-          example: "juan@p.cl"
-        phones:
-          type: array
-          items:
-            $ref: '#/components/schemas/Phone'
         id:
           type: string
-          example: "e2a5f0d8-3d3b-4d0a-9a8b-3d7a0f7e0c99"
+          format: uuid
+          description: UUID del usuario.
+          example: e2a5f0d8-3d3b-4d0a-9a8b-3d7a0f7e0c99
+        name:
+          type: string
+          example: Juan Perez
+        email:
+          type: string
+          description: Correo almacenado sin normalización.
+          example: juan@p.cl
+        phones:
+          type: array
+          description: Teléfonos registrados; puede estar vacía.
+          items:
+            $ref: "#/components/schemas/PhoneResponse"
         created:
           type: string
-          description: Fecha ISO-8601 sin zona horaria; created, modified y last_login son iguales al registrar.
-          example: "2025-03-17T14:00:00"
+          description: Fecha local ISO-8601 sin zona ni offset. Igual a modified y
+            last_login al registrar.
+          example: 2026-10-09T14:00:00.123456789
         modified:
           type: string
-          description: Fecha ISO-8601 sin zona horaria; created, modified y last_login son iguales al registrar.
-          example: "2025-03-17T14:00:00"
-        last_login:
-          type: string
-          description: Fecha ISO-8601 sin zona horaria; created, modified y last_login son iguales al registrar.
-          example: "2025-03-17T14:00:00"
+          description: Fecha local ISO-8601 sin zona ni offset. Igual a created al
+            registrar.
+          example: 2026-10-09T14:00:00.123456789
         token:
           type: string
-          example: "dummy-token"
+          description: "JWT completo firmado con HS512 y persistido. Contiene sub\
+            \ (UUID), email, iat y exp. No habilita autenticación en esta API."
+        last_login:
+          type: string
+          description: Fecha local ISO-8601 sin zona ni offset. Igual a created al
+            registrar; no representa un flujo de login.
+          example: 2026-10-09T14:00:00.123456789
         isactive:
           type: boolean
+          description: "Estado inicial del usuario: true."
           example: true
-    ApiError:
-      type: object
-      additionalProperties: false
-      required: [mensaje]
-      properties:
-        mensaje:
-          type: string
-          minLength: 1
-          example: "El correo ya registrado"
+      required:
+      - created
+      - email
+      - id
+      - isactive
+      - last_login
+      - modified
+      - name
+      - phones
+      - token

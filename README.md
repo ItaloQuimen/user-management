@@ -1,44 +1,59 @@
 # user-management
-Este proyecto es una API RESTful para la gestión de usuarios desarrollada con Spring Boot, Spring Data JPA, Hibernate, JWT, y Swagger UI. Utiliza H2 como base de datos en memoria y cuenta con pruebas unitarias e integración utilizando JUnit 6, Mockito y Spring Security Test.
 
-Tecnologías utilizadas:
-- Java: 21 LTS
-- Spring Boot: 4.1.1
-- Maven: 3.9.9 mediante el wrapper incluido
-- Base de datos: H2 Database (en memoria)
-- Seguridad: Spring Security
-- JWT: JJWT 0.13.0 (HS512)
-- JSON de la API: Jackson 3
-- OpenAPI y Swagger UI: springdoc-openapi 3.1.1
-- Herramientas de prueba: JUnit 6, Mockito
+API REST de registro público de usuarios. Recibe datos en JSON, valida la entrada y guarda usuario, teléfonos y un JWT en H2 en memoria. No implementa CRUD completo, login ni autorización mediante el token.
 
-Prerrequisitos de ejecución
+El proyecto incluye pruebas de contrato, persistencia y seguridad JWT, documentación OpenAPI y una [explicación de la arquitectura y del flujo](docs/arquitectura.md).
 
-Instalar un JDK 21 y configurar `JAVA_HOME` para ese JDK. En IntelliJ, seleccionar también Java 21 como SDK del proyecto y JDK de Maven. En PowerShell, reemplazar la ruta de ejemplo por la instalación local:
+## Tecnologías y requisitos
+
+- Java 21 LTS.
+- Spring Boot 4.1.1, Spring MVC, Spring Security y JPA/Hibernate.
+- Maven 3.9.9 mediante el wrapper incluido; no hace falta instalar Maven por separado.
+- H2 en memoria y esquema SQL explícito.
+- Jackson 3 para la API, JJWT 0.13.0 con HS512 y BCrypt para contraseñas.
+- springdoc-openapi 3.1.1, Swagger UI, JUnit 6 y Mockito.
+
+Instalar Git y un JDK 21. Los ejemplos de terminal están escritos y comprobados para **Windows PowerShell 5.1**. No requieren PowerShell 7 ni `-SkipHttpErrorCheck`.
+
+## Preparar y ejecutar
+
+### 1. Clonar y entrar al módulo
+
+Desde una carpeta de trabajo:
+
+```powershell
+git clone https://github.com/ItaloQuimen/user-management.git
+cd user-management/user-management-api
+```
+
+Los comandos de Maven y del JAR que siguen se ejecutan desde ese módulo.
+
+### 2. Seleccionar Java 21
+
+Reemplazar la ruta por la instalación local:
 
 ```powershell
 $env:JAVA_HOME = 'C:\ruta\al\jdk-21'
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 java -version
+.\mvnw.cmd -version
 ```
 
-Configuración Inicial
+Ambos comandos deben informar Java 21. En IntelliJ, seleccionar también Java 21 como SDK del proyecto y JDK del ejecutor Maven.
 
-1- Clonar el Repositorio:
+### 3. Ejecutar pruebas y construir
 
-git clone https://github.com/Italo-Quimen/user-management.git
-cd user-management-api
+```powershell
+.\mvnw.cmd -B clean verify
+```
 
-## Configuración de JWT, pruebas y arranque
+El resultado incluye `target/user-management-api-0.0.1-SNAPSHOT.jar`. La suite comprueba contrato JSON, validaciones, BCrypt, JWT real, persistencia, conflicto de unicidad, rollback, modos de ejecución y documentación.
 
-El archivo `user-management-api/src/main/resources/application.properties` incluye H2 y la expresión regular de contraseña. Para ejecutar la aplicación se necesita una clave JWT externa; no hay una clave operativa predeterminada.
+Las pruebas usan configuración y clave exclusivas de `src/test/resources/application-test.properties`, con precedencia sobre el entorno. Esa clave es pública, solo para pruebas y no se incluye en el JAR. No se necesita una clave operativa para ejecutar la suite.
 
-### Clave y duración
+### 4. Configurar JWT en la terminal del servidor
 
-- `JWT_SECRET_BASE64` configura `app.jwt.secret-base64`: Base64 estándar con padding (`=` cuando corresponda), sin espacios ni saltos de línea. Debe representar al menos 64 bytes, el mínimo para HS512; no basta una cadena de 64 caracteres.
-- `JWT_EXPIRATION_SECONDS` configura `app.jwt.expiration-seconds`: entero positivo en segundos. Su valor predeterminado es `3600` (una hora). Se rechazan valores no enteros, no positivos o que desborden la fecha de vencimiento.
-
-Generar una clave local de 64 bytes mediante un generador criptográfico y guardarla solo en el entorno de la sesión de PowerShell, sin imprimirla:
+No hay un secreto operativo predeterminado. Generar 64 bytes aleatorios y guardar su Base64 únicamente en el entorno de esta sesión, sin imprimirlo:
 
 ```powershell
 $jwtKeyBytes = New-Object byte[] 64
@@ -53,108 +68,190 @@ try {
 $env:JWT_EXPIRATION_SECONDS = '3600'
 ```
 
-Conservar la misma clave mientras se necesite verificar los tokens emitidos. Generar otra cambia la clave de firma. No guardar la clave en Git, compartirla ni pasarla como argumento de línea de comandos. El arranque falla con un diagnóstico de la propiedad si falta la clave o el formato, tamaño o duración son inválidos; el diagnóstico no incluye su contenido.
+- `JWT_SECRET_BASE64` configura `app.jwt.secret-base64`: Base64 estándar canónico, con padding cuando corresponda y sin espacios ni saltos. Debe representar al menos 64 bytes efectivos; una cadena de 64 caracteres no garantiza ese tamaño.
+- `JWT_EXPIRATION_SECONDS` configura `app.jwt.expiration-seconds`: entero positivo en segundos, con valor predeterminado `3600`. Se rechazan duración inválida y valores que desborden el vencimiento.
 
-### Pruebas y arranque desde PowerShell
+La aplicación rechaza al iniciar una clave ausente, mal formada o insuficiente y una duración inválida, con diagnóstico de la propiedad sin mostrar el secreto. No guardar claves en Git ni pasarlas como argumentos. Conservar la misma clave para verificar los tokens emitidos; cambiarla invalida su verificación con la nueva clave.
 
-Desde el directorio del módulo `user-management-api`, con el JDK 21 configurado según los prerrequisitos:
+### 5. Iniciar el servidor
+
+En la misma terminal donde se configuró JWT:
 
 ```powershell
-.\mvnw.cmd -version
-.\mvnw.cmd -B clean verify
 java -jar .\target\user-management-api-0.0.1-SNAPSHOT.jar
 ```
 
-Las pruebas no necesitan una clave local: los contextos de integración cargan explícitamente `src/test/resources/application-test.properties`, con precedencia sobre las variables del entorno. Esa clave es pública y solo para pruebas; el archivo y su clave no se incluyen en el JAR. Las pruebas verifican firma, claims, vencimiento, rechazo de tokens/configuración inválidos y persistencia del mismo token, además del contrato y las transacciones.
+Esta terminal queda ocupada por el servidor. Esperar el mensaje de arranque y mantenerla abierta. La aplicación está en `http://localhost:8080`; abrir **otra terminal** para enviar las peticiones del apartado siguiente. Detener el servidor con `Ctrl+C`; al reiniciarlo la base vuelve a estar vacía.
 
-Antes de ejecutar el JAR, generar la clave en esa misma sesión con el bloque anterior. La aplicación arranca en `http://localhost:8080` sobre H2 vacía. La documentación generada está en `/v3/api-docs` y Swagger UI en `/swagger-ui/index.html`. Para comprobar el registro público con los datos del ejemplo:
-
-```powershell
-$registrationBody = '{"name":"Juan Perez","email":"juan@p.cl","password":"Password1","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
-$registration = Invoke-WebRequest -UseBasicParsing -Method Post -Uri 'http://localhost:8080/users' -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -Body $registrationBody
-$registration.StatusCode
-```
-
-La primera petición devuelve 201; repetirla devuelve 409. El JWT firmado contiene `sub` (UUID del usuario), `email`, `iat` y `exp` (fechas UTC en segundos). No contiene contraseña ni hash y se almacena completo. El registro sigue siendo público; emitir un JWT no añade login ni autorización.
-
-### Arranque desde IntelliJ
-
-Seleccionar Java 21 como SDK del proyecto, JDK del ejecutor Maven y JRE de la configuración de ejecución de `UserManagementApiApplication`. En **Run > Edit Configurations**, configurar `JWT_SECRET_BASE64` y `JWT_EXPIRATION_SECONDS` en **Environment variables**; usar una clave generada por el bloque de PowerShell anterior, transferida localmente al campo de entorno sin publicarla. Mantener la configuración local sin compartirla en el repositorio. Las variables de una terminal no se propagan a una instancia de IntelliJ ya abierta.
-
-Ejecutar `clean verify` desde Maven o mediante el wrapper en la terminal con Java 21. Las pruebas cargan su configuración propia; al ejecutar la aplicación desde IntelliJ se necesita la clave local. La base H2 en memoria se crea de nuevo en cada proceso, igual que al ejecutar el JAR.
-
-JJWT utiliza los módulos `jjwt-api`, `jjwt-impl` y `jjwt-jackson`. Su adaptador JSON usa Jackson 2 internamente; la API conserva Jackson 3. La configuración modular y el mínimo de clave HS512 se describen en la [documentación oficial de JJWT 0.13.0](https://github.com/jwtk/jjwt/tree/0.13.0#installation).
-
-## Modos de ejecución y consola H2
-
-El arranque sin el perfil `dev` desactiva explícitamente la consola H2 y la impresión de SQL, incluso con DevTools en el classpath. El registro público, los errores JSON y Swagger siguen disponibles. La base continúa en memoria, creada con `schema.sql` y validada por JPA.
-
-Para habilitar las herramientas locales de desarrollo, configurar primero la clave JWT como se explica arriba y ejecutar desde `user-management-api`:
+Para habilitar las herramientas locales de desarrollo, usar en lugar del comando anterior:
 
 ```powershell
 java -jar .\target\user-management-api-0.0.1-SNAPSHOT.jar --spring.profiles.active=dev
 ```
 
-En IntelliJ, añadir `--spring.profiles.active=dev` en **Program arguments** de la configuración de ejecución. Para volver al modo normal, quitar ese argumento y cualquier activación de `dev` en **Active profiles** o `SPRING_PROFILES_ACTIVE`. Mantener estas opciones en la configuración local del IDE.
+### Arranque desde IntelliJ
 
-El perfil `dev` liga el servidor a `127.0.0.1`, habilita la impresión de SQL y permite la consola en `http://127.0.0.1:8080/h2-console/`. El acceso remoto de la consola permanece deshabilitado. Los frames `SAMEORIGIN` y los ajustes de seguridad de H2 se limitan a la consola en este perfil; las respuestas de la API y Swagger conservan `X-Frame-Options: DENY`.
+Abrir el módulo Maven. Seleccionar Java 21 como JRE de la ejecución de `UserManagementApiApplication` y como JDK de Maven. En **Run > Edit Configurations > Environment variables**, configurar `JWT_SECRET_BASE64` y `JWT_EXPIRATION_SECONDS` con una clave local generada como arriba. Transferirla localmente sin publicarla; las variables de una terminal no se propagan a IntelliJ ya abierto.
 
-Para conectar desde la consola, usar estos datos de la base local del mismo proceso:
+Para desarrollo, añadir `--spring.profiles.active=dev` en **Program arguments**. Para el arranque normal, quitarlo y retirar cualquier activación de `dev` en **Active profiles** o `SPRING_PROFILES_ACTIVE`. Mantener estas configuraciones personales fuera del repositorio. Ejecutar las pruebas mediante el wrapper o `clean verify` desde Maven.
+
+## Probar el registro
+
+En una **segunda terminal de Windows PowerShell 5.1**, definir esta función. Muestra estado y cuerpo tanto en éxito como cuando `Invoke-WebRequest` convierte un error HTTP en excepción:
+
+```powershell
+$baseUrl = 'http://localhost:8080'
+function Send-Registration {
+    param([string]$Body)
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$baseUrl/users" -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -Body $Body
+        [pscustomobject]@{ StatusCode = [int]$response.StatusCode; Body = $response.Content }
+    } catch {
+        $errorResponse = $_.Exception.Response
+        if ($null -eq $errorResponse) { throw }
+        $errorBody = $_.ErrorDetails.Message
+        if ([string]::IsNullOrWhiteSpace($errorBody)) {
+            $reader = New-Object System.IO.StreamReader($errorResponse.GetResponseStream())
+            try { $errorBody = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        }
+        [pscustomobject]@{ StatusCode = [int]$errorResponse.StatusCode; Body = $errorBody }
+    }
+}
+```
+
+### Registro correcto - 201
+
+```powershell
+$registrationBody = '{"name":"Juan Perez","email":"juan@p.cl","password":"Password1","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+$created = Send-Registration -Body $registrationBody
+$created | Format-List
+```
+
+Devuelve `StatusCode: 201` y el usuario registrado. El token y los identificadores son valores generados en cada ejecución.
+
+### Correo duplicado - 409
+
+Sin reiniciar el servidor, repetir la misma petición:
+
+```powershell
+$duplicate = Send-Registration -Body $registrationBody
+$duplicate | Format-List
+```
+
+El cuerpo es exactamente `{"mensaje":"El correo ya registrado"}`.
+
+### Validación fallida - 400
+
+Con la política de contraseña predeterminada, `hunter2` no alcanza ocho caracteres:
+
+```powershell
+$invalidBody = '{"name":"Ana Perez","email":"ana@p.cl","password":"hunter2","phones":[]}'
+$invalid = Send-Registration -Body $invalidBody
+$invalid | Format-List
+```
+
+Devuelve `400` y `{"mensaje":"La contraseña no cumple con el formato requerido"}`. Si se cambia la política, adaptar estos ejemplos a ella.
+
+## Contrato y validación
+
+El único endpoint de negocio es **POST /users**, público y con `Content-Type: application/json` y `Accept: application/json`. No requiere cabecera `Authorization`.
+
+- `name`, `email` y `password`: obligatorios y no blancos.
+- `email`: expresión regular `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`. Se almacena sin normalización; el duplicado se determina por igualdad del valor almacenado.
+- `phones`: obligatorio y no nulo; permite `[]`. Sus elementos no pueden ser nulos.
+- Cada teléfono incluye `number`, `citycode` y `contrycode` con texto no blanco. No se exige formato numérico ni una cantidad mínima de teléfonos. Se conserva la grafía `contrycode`.
+
+### Política configurable de contraseña
+
+`app.password.regex` se aplica a la contraseña completa. La política predeterminada exige **ocho o más caracteres alfanuméricos ASCII, al menos una letra y un dígito**. No exige mayúscula, minúscula y símbolo simultáneamente; los símbolos no pertenecen al conjunto predeterminado.
+
+Para cambiarla sin editar el producto, pasar una expresión regular Java entre comillas simples al arrancar. Este ejemplo conserva la composición y eleva el mínimo a diez:
+
+```powershell
+java -jar .\target\user-management-api-0.0.1-SNAPSHOT.jar '--app.password.regex=^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{10,}$'
+```
+
+En IntelliJ, añadir el mismo argumento en **Program arguments**, sin las comillas que usa la terminal para delimitarlo. En un archivo `.properties` hay que duplicar la barra invertida de `\d`, como en [application.properties](user-management-api/src/main/resources/application.properties). El correo no se configura mediante esta propiedad.
+
+### Respuesta de creación
+
+El estado es **201**. La respuesta contiene únicamente los nueve campos siguientes:
+
+| Campos                              | Contenido                                                     |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `id`                                | UUID del usuario.                                             |
+| `name`, `email`, `phones`           | Datos registrados, con los nombres de teléfono anteriores.    |
+| `created`, `modified`, `last_login` | Fechas iniciales iguales, ISO-8601 local, sin zona ni offset. |
+| `token`                             | JWT completo emitido y persistido.                            |
+| `isactive`                          | `true` al registrar.                                          |
+
+No devuelve contraseña, hash ni relaciones internas, ni las variantes `lastLogin` o `isActive`. Las fechas locales pueden incluir fracciones de segundo; no son marcas UTC. Los claims JWT `iat` y `exp`, en cambio, representan instantes como segundos desde la época Unix.
+
+### Errores JSON
+
+El cuerpo contiene únicamente `mensaje`, con texto no vacío. No expone SQL, trazas ni secretos. Los errores de negociación también se devuelven en JSON aunque `Accept` solicite otro formato.
+
+| Estado | Situación                                                       |
+| ------ | --------------------------------------------------------------- |
+| 400    | Validación, JSON malformado o cuerpo ausente.                   |
+| 409    | Correo duplicado antes o durante la escritura.                  |
+| 404    | Ruta API inexistente.                                           |
+| 405    | Método no admitido, por ejemplo `GET /users`.                   |
+| 406    | Formato solicitado por `Accept` incompatible.                   |
+| 415    | `Content-Type` incompatible con JSON.                           |
+| 500    | Error inesperado, con mensaje genérico y sin detalles internos. |
+
+El 409 usa siempre `El correo ya registrado`; el 500 usa `Ocurrió un error interno`. Un conflicto de integridad distinto del correo no se presenta como duplicado.
+
+## Persistencia y modos de ejecución
+
+[Schema SQL](user-management-api/src/main/resources/schema.sql) crea tablas, relación usuario-teléfonos y restricción `uk_users_email`. Spring lo ejecuta antes de JPA; Hibernate valida con `ddl-auto=validate` y no compite por crear tablas.
+
+Usuario, todos sus teléfonos y token se guardan en una única transacción. El token usa `CLOB` para conservarse completo. Las fechas usan `TIMESTAMP(9)`; los demás textos mantienen columnas de 255 caracteres. La API no añade límites de entrada de 255: valores que excedan la capacidad pueden producir un error de persistencia. H2 es volátil: **los datos se pierden al detener el proceso**.
+
+| Ajuste                  | Normal                            | Perfil `dev` explícito                |
+| ----------------------- | --------------------------------- | ------------------------------------- |
+| Consola H2              | Desactivada, incluso con DevTools | Habilitada solo para acceso local.    |
+| Impresión SQL           | Desactivada                       | Habilitada.                           |
+| Dirección del servidor  | Valor predeterminado del servidor | `127.0.0.1`.                          |
+| Frames de la consola    | Consola ausente                   | `SAMEORIGIN` solo para la consola.    |
+| API y Swagger           | Disponibles, frames `DENY`        | Disponibles, frames `DENY`.           |
+
+En `dev`, abrir `http://127.0.0.1:8080/h2-console/`. El acceso remoto permanece deshabilitado. Datos de conexión:
 
 - Driver Class: `org.h2.Driver`.
 - JDBC URL: `jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE`.
 - User Name: `sa`.
 - Password: vacío.
 
-Tras registrar un usuario mediante la API, conectar y ejecutar `SELECT id, name, email FROM users;` y `SELECT number, citycode, contrycode FROM phones;` para comprobar sus datos. No usar una URL de base en archivo ni abrir otra consola H2 en un proceso separado: la base en memoria pertenece a esta aplicación. La consola devuelve HTML como herramienta auxiliar; el contrato JSON de la API se conserva. Al detener el proceso se pierden los datos.
+Tras registrar un usuario, conectar y ejecutar `SELECT id, name, email FROM users;` y `SELECT number, citycode, contrycode FROM phones;`. Usar la consola del **mismo proceso**: una consola H2 separada no comparte esta base en memoria. Swagger y H2 son herramientas auxiliares HTML, no endpoints de negocio JSON.
 
-## Persistencia
+## OpenAPI y Swagger
 
-El esquema H2 se crea al arrancar mediante [schema.sql](user-management-api/src/main/resources/schema.sql). Spring ejecuta el script antes de inicializar JPA; Hibernate valida las tablas y sus mapeos con `spring.jpa.hibernate.ddl-auto=validate`. La base está en memoria y sus datos desaparecen al terminar el proceso.
+Con el servidor en ejecución:
 
-El registro guarda usuario, teléfonos y token en una única transacción. La relación de cada teléfono con su usuario es obligatoria y el correo tiene la restricción única `uk_users_email`. Tanto el duplicado detectado previamente como el conflicto de correo durante la escritura devuelven 409; otros errores de integridad devuelven 500 sin detalles internos.
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`.
+- Contrato generado JSON: `http://localhost:8080/v3/api-docs`.
+- Contrato generado YAML: `http://localhost:8080/v3/api-docs.yaml`.
+- [Copia estática del contrato OpenAPI 3.1.0](user-management-api-openapi.yaml).
 
-El token se conserva íntegro en una columna `CLOB`, sin el límite anterior de 255 caracteres. Las fechas usan `TIMESTAMP(9)` para preservar la precisión de `LocalDateTime`. Los demás textos mantienen sus columnas de 255 caracteres; no se añaden reglas de validación de entrada por este ajuste del esquema.
+Las anotaciones documentales y la configuración OpenAPI son la fuente de la copia. El servidor relativo `/` evita registrar puertos temporales y permite usar Swagger en el mismo origen.
 
-## Uso de la API
+Para actualizar el YAML, construir y arrancar la aplicación actual; después, desde una segunda terminal situada en `user-management-api`:
 
-### Registro de usuario
-
-El registro es público. Enviar `POST /users` con `Content-Type: application/json` y `Accept: application/json`:
-
-```json
-{
-  "name": "Juan Perez",
-  "email": "juan@p.cl",
-  "password": "Password1",
-  "phones": [
-    {
-      "number": "1234567",
-      "citycode": "1",
-      "contrycode": "57"
-    }
-  ]
-}
+```powershell
+Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:8080/v3/api-docs.yaml' -OutFile '..\user-management-api-openapi.yaml'
 ```
 
-`name`, `email` y `password` son obligatorios y no pueden estar en blanco. El correo debe respetar el formato configurado en la validación. La política predeterminada de contraseña exige al menos ocho caracteres alfanuméricos, una letra y un dígito; se puede cambiar con `app.password.regex`. `Password1` cumple esa política; `hunter2` no la cumple.
+Revisar el diff, los nombres JSON, estados y esquemas contra el JSON generado y las pruebas antes de publicar. No editar la copia para introducir reglas que no tenga la API. El esquema describe la contraseña configurable, no impone una política fija; las fechas locales son cadenas sin el formato RFC 3339 `date-time`, que requiere offset.
 
-`phones` debe existir y no ser nulo; se permite `[]`. Sus elementos no pueden ser nulos y cada teléfono debe incluir `number`, `citycode` y `contrycode` con texto no blanco. No se exige un formato numérico para esos campos.
+## Arquitectura y límites
 
-La respuesta HTTP 201 contiene `name`, `email`, `phones`, `id` (UUID), `created`, `modified`, `last_login`, `token` e `isactive`. Las tres fechas iniciales son iguales y se serializan en ISO-8601 sin zona horaria. No se devuelve contraseña, hash ni relaciones internas.
+El [diagrama editable y las responsabilidades](docs/arquitectura.md) muestran validación, controlador, servicio transaccional, JWT, repositorio y H2, incluido el conflicto de correo durante la escritura.
 
-### Errores
+- BCrypt protege la contraseña almacenada; el JWT contiene `sub` (UUID), `email`, `iat` y `exp`, sin contraseña ni hash.
+- Firmar y persistir el token no añade login, verificación de peticiones ni autorización de negocio.
+- El almacenamiento en memoria, las herramientas locales y el registro público corresponden a una aplicación demostrativa; no se afirma un despliegue productivo.
+- JJWT y bibliotecas de documentación usan Jackson 2 internamente; la API conserva Jackson 3. JAXB es una dependencia de Hibernate.
 
-Todos los errores de la API devuelven JSON con un único campo `mensaje`, incluso si `Accept` solicita otro formato:
-
-```json
-{"mensaje": "El correo ya registrado"}
-```
-
-- 400: datos inválidos, JSON malformado o cuerpo ausente.
-- 409: correo ya registrado, con el mensaje exacto del ejemplo. Se compara el correo sin normalización automática.
-- 404: ruta inexistente.
-- 405: método no admitido.
-- 406: formato de respuesta solicitado incompatible.
-- 415: contenido de entrada distinto de JSON.
-- 500: error inesperado, con mensaje genérico y sin detalles internos.
+Referencias: [springdoc](https://springdoc.org/), [OpenAPI 3.1.0](https://spec.openapis.org/oas/v3.1.0.html), [JJWT 0.13.0](https://github.com/jwtk/jjwt/tree/0.13.0), [inicialización SQL de Spring Boot](https://docs.spring.io/spring-boot/how-to/data-initialization.html) y [consola H2 con Spring Security](https://docs.spring.io/spring-boot/reference/data/sql.html#data.sql.h2-web-console).
