@@ -21,8 +21,8 @@ paths:
               ejemplo:
                 value:
                   name: "Juan Perez"
-                  email: "juan@perez.org"
-                  password: "hunter2"
+                  email: "juan@p.cl"
+                  password: "Password1"
                   phones:
                     - number: "1234567"
                       citycode: "1"
@@ -35,25 +35,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserResponse'
         '400':
-          description: Error de validación (por ejemplo, formato de correo inválido o correo ya registrado).
+          description: Datos inválidos, JSON malformado o cuerpo ausente.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  mensaje:
-                    type: string
-                    example: "El correo no tiene un formato válido (ej: aaaaaaa@dominio.cl)"
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Correo duplicado. Mensaje exacto «El correo ya registrado».
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Ruta inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '405':
+          description: Método no admitido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '406':
+          description: Formato de respuesta solicitado incompatible; el error se devuelve en JSON.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Contenido de entrada no admitido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
         '500':
-          description: Error interno del servidor.
+          description: Error interno del servidor, sin detalles internos.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  mensaje:
-                    type: string
-                    example: "Ocurrió un error interno"
+                $ref: '#/components/schemas/ApiError'
 components:
   schemas:
     UserRequest:
@@ -62,20 +84,24 @@ components:
         - name
         - email
         - password
+        - phones
       properties:
         name:
           type: string
+          description: Texto obligatorio no blanco.
           example: "Juan Perez"
         email:
           type: string
           format: email
-          example: "juan@perez.org"
+          example: "juan@p.cl"
           pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
         password:
           type: string
-          example: "hunter2"
+          description: Política configurable con app.password.regex; por defecto, mínimo ocho caracteres alfanuméricos, una letra y un dígito.
+          example: "Password1"
         phones:
           type: array
+          description: Lista obligatoria; puede estar vacía y no admite elementos nulos.
           items:
             $ref: '#/components/schemas/Phone'
     Phone:
@@ -96,25 +122,45 @@ components:
           example: "57"
     UserResponse:
       type: object
+      required: [id, name, email, phones, created, modified, last_login, token, isactive]
       properties:
+        name:
+          type: string
+          example: "Juan Perez"
+        email:
+          type: string
+          example: "juan@p.cl"
+        phones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Phone'
         id:
           type: string
           example: "e2a5f0d8-3d3b-4d0a-9a8b-3d7a0f7e0c99"
         created:
           type: string
-          format: date-time
-          example: "2025-03-17T14:00:00Z"
+          description: Fecha ISO-8601 sin zona horaria; created, modified y last_login son iguales al registrar.
+          example: "2025-03-17T14:00:00"
         modified:
           type: string
-          format: date-time
-          example: "2025-03-17T14:00:00Z"
-        lastLogin:
+          description: Fecha ISO-8601 sin zona horaria; created, modified y last_login son iguales al registrar.
+          example: "2025-03-17T14:00:00"
+        last_login:
           type: string
-          format: date-time
-          example: "2025-03-17T14:00:00Z"
+          description: Fecha ISO-8601 sin zona horaria; created, modified y last_login son iguales al registrar.
+          example: "2025-03-17T14:00:00"
         token:
           type: string
           example: "dummy-token"
-        isActive:
+        isactive:
           type: boolean
           example: true
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [mensaje]
+      properties:
+        mensaje:
+          type: string
+          minLength: 1
+          example: "El correo ya registrado"

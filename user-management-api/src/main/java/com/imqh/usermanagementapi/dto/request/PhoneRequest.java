@@ -1,16 +1,16 @@
 package com.imqh.usermanagementapi.dto.request;
 
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotBlank;
 
 public class PhoneRequest {
 
-    @NotEmpty(message = "El número es obligatorio")
+    @NotBlank(message = "El número es obligatorio")
     private String number;
 
-    @NotEmpty(message = "El citycode es obligatorio")
+    @NotBlank(message = "El citycode es obligatorio")
     private String citycode;
 
-    @NotEmpty(message = "El contrycode es obligatorio")
+    @NotBlank(message = "El contrycode es obligatorio")
     private String contrycode;
 
     public String getNumber() {

@@ -2,27 +2,28 @@ package com.imqh.usermanagementapi.dto.request;
 
 import java.util.List;
 
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 public class UserRequest {
 
-    @NotEmpty(message = "El nombre es obligatorio")
+    @NotBlank(message = "El nombre es obligatorio")
     private String name;
 
-    @NotEmpty(message = "El correo es obligatorio")
+    @NotBlank(message = "El correo es obligatorio")
     @Pattern(
             regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
             message = "El correo no tiene un formato válido (ej: aaaaaaa@dominio.cl)"
     )
     private String email;
 
-    @NotEmpty(message = "La contraseña es obligatoria")
+    @NotBlank(message = "La contraseña es obligatoria")
     private String password;
 
     @NotNull(message = "La lista de teléfonos no puede ser nula")
-    private List<PhoneRequest> phones;
+    private List<@NotNull(message = "Los teléfonos no pueden ser nulos") @Valid PhoneRequest> phones;
 
     public String getName() {
         return name;

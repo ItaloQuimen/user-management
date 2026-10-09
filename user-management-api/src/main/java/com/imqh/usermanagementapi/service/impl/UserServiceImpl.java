@@ -2,9 +2,11 @@ package com.imqh.usermanagementapi.service.impl;
 
 import com.imqh.usermanagementapi.dto.request.UserRequest;
 import com.imqh.usermanagementapi.dto.response.UserResponse;
+import com.imqh.usermanagementapi.dto.response.PhoneResponse;
 import com.imqh.usermanagementapi.entity.Phone;
 import com.imqh.usermanagementapi.entity.User;
 import com.imqh.usermanagementapi.exception.CustomException;
+import com.imqh.usermanagementapi.exception.DuplicateEmailException;
 import com.imqh.usermanagementapi.repository.UserRepository;
 import com.imqh.usermanagementapi.service.UserService;
 import com.imqh.usermanagementapi.util.JwtUtil;
@@ -38,7 +40,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse registerUser(UserRequest userRequest) {
         if (userRepository.findByEmail(userRequest.getEmail()).isPresent()) {
-            throw new CustomException("El correo ya registrado");
+            throw new DuplicateEmailException();
         }
 
         if (!passwordPattern.matcher(userRequest.getPassword()).matches()) {
@@ -70,11 +72,16 @@ public class UserServiceImpl implements UserService {
 
         UserResponse response = new UserResponse();
         response.setId(savedUser.getId());
+        response.setName(savedUser.getName());
+        response.setEmail(savedUser.getEmail());
+        response.setPhones(savedUser.getPhones().stream()
+                .map(phone -> new PhoneResponse(phone.getNumber(), phone.getCitycode(), phone.getContrycode()))
+                .toList());
         response.setCreated(savedUser.getCreated());
         response.setModified(savedUser.getModified());
         response.setLastLogin(savedUser.getLastLogin());
         response.setToken(savedUser.getToken());
-        response.setIsActive(savedUser.isActive());
+        response.setActive(savedUser.isActive());
         return response;
     }
 }

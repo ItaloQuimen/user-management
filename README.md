@@ -47,24 +47,45 @@ java -jar .\target\user-management-api-0.0.1-SNAPSHOT.jar
 
 La aplicación arranca en `http://localhost:8080`. La documentación generada está en `/v3/api-docs` y Swagger UI en `/swagger-ui/index.html`.
 
-Uso de la API
-Registro de Usuario
+## Uso de la API
 
-Para registrar un usuario, realiza una solicitud POST a /users con un cuerpo JSON similar a:
+### Registro de usuario
 
+El registro es público. Enviar `POST /users` con `Content-Type: application/json` y `Accept: application/json`:
+
+```json
 {
-"name": "Juan Perez",
-"email": "juan@perez.com",
-"password": "password88,
-"phones": [
-{
-"number": "1234567",
-"citycode": "1",
-"contrycode": "57"
+  "name": "Juan Perez",
+  "email": "juan@p.cl",
+  "password": "Password1",
+  "phones": [
+    {
+      "number": "1234567",
+      "citycode": "1",
+      "contrycode": "57"
+    }
+  ]
 }
-]
-}
+```
 
-Si la validación (por ejemplo, del formato del correo) falla, el GlobalExceptionHandler devolverá un mensaje de error en formato JSON con la clave mensaje y los detalles en errors.
+`name`, `email` y `password` son obligatorios y no pueden estar en blanco. El correo debe respetar el formato configurado en la validación. La política predeterminada de contraseña exige al menos ocho caracteres alfanuméricos, una letra y un dígito; se puede cambiar con `app.password.regex`. `Password1` cumple esa política; `hunter2` no la cumple.
 
-La respuesta exitosa incluirá campos como id, created, modified, lastLogin, token e isActive
+`phones` debe existir y no ser nulo; se permite `[]`. Sus elementos no pueden ser nulos y cada teléfono debe incluir `number`, `citycode` y `contrycode` con texto no blanco. No se exige un formato numérico para esos campos.
+
+La respuesta HTTP 201 contiene `name`, `email`, `phones`, `id` (UUID), `created`, `modified`, `last_login`, `token` e `isactive`. Las tres fechas iniciales son iguales y se serializan en ISO-8601 sin zona horaria. No se devuelve contraseña, hash ni relaciones internas.
+
+### Errores
+
+Todos los errores de la API devuelven JSON con un único campo `mensaje`, incluso si `Accept` solicita otro formato:
+
+```json
+{"mensaje": "El correo ya registrado"}
+```
+
+- 400: datos inválidos, JSON malformado o cuerpo ausente.
+- 409: correo ya registrado, con el mensaje exacto del ejemplo. Se compara el correo sin normalización automática.
+- 404: ruta inexistente.
+- 405: método no admitido.
+- 406: formato de respuesta solicitado incompatible.
+- 415: contenido de entrada distinto de JSON.
+- 500: error inesperado, con mensaje genérico y sin detalles internos.

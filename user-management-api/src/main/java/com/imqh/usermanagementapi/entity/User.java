@@ -43,9 +43,10 @@ public class User {
 
     public User() {
         this.id = UUID.randomUUID().toString();
-        this.created = LocalDateTime.now();
-        this.modified = LocalDateTime.now();
-        this.lastLogin = LocalDateTime.now();
+        LocalDateTime registeredAt = LocalDateTime.now();
+        this.created = registeredAt;
+        this.modified = registeredAt;
+        this.lastLogin = registeredAt;
         this.isActive = true;
     }
 
