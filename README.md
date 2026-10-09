@@ -7,7 +7,7 @@ Tecnologías utilizadas:
 - Maven: 3.9.9 mediante el wrapper incluido
 - Base de datos: H2 Database (en memoria)
 - Seguridad: Spring Security
-- JWT: io.jsonwebtoken 0.9.1
+- JWT: JJWT 0.13.0 (HS512)
 - JSON de la API: Jackson 3
 - OpenAPI y Swagger UI: springdoc-openapi 3.1.1
 - Herramientas de prueba: JUnit 6, Mockito
@@ -29,23 +29,61 @@ Configuración Inicial
 git clone https://github.com/Italo-Quimen/user-management.git
 cd user-management-api
 
-2- Configuración de Propiedades:
+## Configuración de JWT, pruebas y arranque
 
-El archivo src/main/resources/application.properties ya incluye la configuración para:
+El archivo `user-management-api/src/main/resources/application.properties` incluye H2 y la expresión regular de contraseña. Para ejecutar la aplicación se necesita una clave JWT externa; no hay una clave operativa predeterminada.
 
-Base de datos H2.
-JWT (clave secreta y tiempo de expiración).
-Validación de la contraseña (expresión regular).
+### Clave y duración
 
-Desde el directorio del módulo `user-management-api`, comprobar que Maven utiliza Java 21, ejecutar todas las pruebas y generar el artefacto:
+- `JWT_SECRET_BASE64` configura `app.jwt.secret-base64`: Base64 estándar con padding (`=` cuando corresponda), sin espacios ni saltos de línea. Debe representar al menos 64 bytes, el mínimo para HS512; no basta una cadena de 64 caracteres.
+- `JWT_EXPIRATION_SECONDS` configura `app.jwt.expiration-seconds`: entero positivo en segundos. Su valor predeterminado es `3600` (una hora). Se rechazan valores no enteros, no positivos o que desborden la fecha de vencimiento.
+
+Generar una clave local de 64 bytes mediante un generador criptográfico y guardarla solo en el entorno de la sesión de PowerShell, sin imprimirla:
+
+```powershell
+$jwtKeyBytes = New-Object byte[] 64
+$jwtRandom = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+try {
+    $jwtRandom.GetBytes($jwtKeyBytes)
+    $env:JWT_SECRET_BASE64 = [Convert]::ToBase64String($jwtKeyBytes)
+} finally {
+    $jwtRandom.Dispose()
+    [Array]::Clear($jwtKeyBytes, 0, $jwtKeyBytes.Length)
+}
+$env:JWT_EXPIRATION_SECONDS = '3600'
+```
+
+Conservar la misma clave mientras se necesite verificar los tokens emitidos. Generar otra cambia la clave de firma. No guardar la clave en Git, compartirla ni pasarla como argumento de línea de comandos. El arranque falla con un diagnóstico de la propiedad si falta la clave o el formato, tamaño o duración son inválidos; el diagnóstico no incluye su contenido.
+
+### Pruebas y arranque desde PowerShell
+
+Desde el directorio del módulo `user-management-api`, con el JDK 21 configurado según los prerrequisitos:
 
 ```powershell
 .\mvnw.cmd -version
-.\mvnw.cmd clean verify
+.\mvnw.cmd -B clean verify
 java -jar .\target\user-management-api-0.0.1-SNAPSHOT.jar
 ```
 
-La aplicación arranca en `http://localhost:8080`. La documentación generada está en `/v3/api-docs` y Swagger UI en `/swagger-ui/index.html`.
+Las pruebas no necesitan una clave local: los contextos de integración cargan explícitamente `src/test/resources/application-test.properties`, con precedencia sobre las variables del entorno. Esa clave es pública y solo para pruebas; el archivo y su clave no se incluyen en el JAR. Las pruebas verifican firma, claims, vencimiento, rechazo de tokens/configuración inválidos y persistencia del mismo token, además del contrato y las transacciones.
+
+Antes de ejecutar el JAR, generar la clave en esa misma sesión con el bloque anterior. La aplicación arranca en `http://localhost:8080` sobre H2 vacía. La documentación generada está en `/v3/api-docs` y Swagger UI en `/swagger-ui/index.html`. Para comprobar el registro público con los datos del ejemplo:
+
+```powershell
+$registrationBody = '{"name":"Juan Perez","email":"juan@p.cl","password":"Password1","phones":[{"number":"1234567","citycode":"1","contrycode":"57"}]}'
+$registration = Invoke-WebRequest -UseBasicParsing -Method Post -Uri 'http://localhost:8080/users' -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -Body $registrationBody
+$registration.StatusCode
+```
+
+La primera petición devuelve 201; repetirla devuelve 409. El JWT firmado contiene `sub` (UUID del usuario), `email`, `iat` y `exp` (fechas UTC en segundos). No contiene contraseña ni hash y se almacena completo. El registro sigue siendo público; emitir un JWT no añade login ni autorización.
+
+### Arranque desde IntelliJ
+
+Seleccionar Java 21 como SDK del proyecto, JDK del ejecutor Maven y JRE de la configuración de ejecución de `UserManagementApiApplication`. En **Run > Edit Configurations**, configurar `JWT_SECRET_BASE64` y `JWT_EXPIRATION_SECONDS` en **Environment variables**; usar una clave generada por el bloque de PowerShell anterior, transferida localmente al campo de entorno sin publicarla. Mantener la configuración local sin compartirla en el repositorio. Las variables de una terminal no se propagan a una instancia de IntelliJ ya abierta.
+
+Ejecutar `clean verify` desde Maven o mediante el wrapper en la terminal con Java 21. Las pruebas cargan su configuración propia; al ejecutar la aplicación desde IntelliJ se necesita la clave local. La base H2 en memoria se crea de nuevo en cada proceso, igual que al ejecutar el JAR.
+
+JJWT utiliza los módulos `jjwt-api`, `jjwt-impl` y `jjwt-jackson`. Su adaptador JSON usa Jackson 2 internamente; la API conserva Jackson 3. La configuración modular y el mínimo de clave HS512 se describen en la [documentación oficial de JJWT 0.13.0](https://github.com/jwtk/jjwt/tree/0.13.0#installation).
 
 ## Persistencia
 

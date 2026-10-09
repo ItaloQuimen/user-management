@@ -4,8 +4,9 @@ import com.imqh.usermanagementapi.dto.request.PhoneRequest;
 import com.imqh.usermanagementapi.dto.request.UserRequest;
 import com.imqh.usermanagementapi.dto.response.UserResponse;
 import com.imqh.usermanagementapi.entity.User;
-import com.imqh.usermanagementapi.service.UserService;
 import com.imqh.usermanagementapi.util.JwtUtil;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.persistence.EntityManager;
 import org.h2.api.Trigger;
 import org.hibernate.exception.ConstraintViolationException;
@@ -19,6 +20,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -28,6 +30,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.sql.Connection;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -43,11 +47,10 @@ import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:persistence-tests;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE")
+@TestPropertySource("classpath:application-test.properties")
 @AutoConfigureMockMvc
 class RegistrationPersistenceTest {
 
-    @Autowired
-    private UserService userService;
     @Autowired
     private JdbcTemplate jdbcTemplate;
     @Autowired
@@ -94,15 +97,31 @@ class RegistrationPersistenceTest {
     }
 
     @Test
-    void registrationPersistsCompleteRealJwtAndAllUserDataAfterClearingContext() {
+    void registrationPersistsCompleteRealJwtAndAllUserDataAfterClearingContext() throws Exception {
         UserRequest request = request("migration35@example.org", "Persisted User");
-        UserResponse response = userService.registerUser(request);
+        Instant beforeRegistration = Instant.now();
+        MvcResult result = register(request);
+        assertEquals(201, result.getResponse().getStatus());
+        UserResponse response = jsonMapper.readValue(result.getResponse().getContentAsString(), UserResponse.class);
+        Instant afterRegistration = Instant.now();
         assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
         UUID.fromString(response.getId());
         assertTrue(response.getToken().length() > 255);
         assertEquals(3, response.getToken().split("\\.").length);
         assertEquals(response.getToken(), jdbcTemplate.queryForObject(
                 "select token from users where id = ?", String.class, response.getId()));
+        var verified = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(Base64.getDecoder().decode(
+                        environment.getRequiredProperty("app.jwt.secret-base64"))))
+                .build().parseSignedClaims(response.getToken());
+        assertEquals("HS512", verified.getHeader().getAlgorithm());
+        var claims = verified.getPayload();
+        assertEquals(response.getId(), claims.getSubject());
+        assertEquals(request.getEmail(), claims.get("email", String.class));
+        assertTrue(claims.getIssuedAt().toInstant().getEpochSecond() >= beforeRegistration.getEpochSecond());
+        assertTrue(claims.getIssuedAt().toInstant().getEpochSecond() <= afterRegistration.getEpochSecond());
+        assertEquals(environment.getRequiredProperty("app.jwt.expiration-seconds", Long.class),
+                (claims.getExpiration().getTime() - claims.getIssuedAt().getTime()) / 1000);
+        assertEquals(Set.of("sub", "email", "iat", "exp"), claims.keySet());
         System.out.println("Real JWT persistence regression: " + response.getToken().length() + " characters");
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
