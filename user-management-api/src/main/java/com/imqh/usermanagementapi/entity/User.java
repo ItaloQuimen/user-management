@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = @UniqueConstraint(name = "uk_users_email", columnNames = "email"))
 public class User {
 
     @Id
@@ -17,21 +17,22 @@ public class User {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "email", unique = true, nullable = false)
+    @Column(name = "email", nullable = false)
     private String email;
 
     @Column(name = "password", nullable = false)
     private String password;
 
-    @Column(name = "created", nullable = false)
+    @Column(name = "created", nullable = false, secondPrecision = 9)
     private LocalDateTime created;
 
-    @Column(name = "modified", nullable = false)
+    @Column(name = "modified", nullable = false, secondPrecision = 9)
     private LocalDateTime modified;
 
-    @Column(name = "last_login", nullable = false)
+    @Column(name = "last_login", nullable = false, secondPrecision = 9)
     private LocalDateTime lastLogin;
 
+    @Lob
     @Column(name = "token", nullable = false)
     private String token;
 

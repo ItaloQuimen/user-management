@@ -19,8 +19,8 @@ public class Phone {
     @Column(name="contrycode", nullable = false)
     private String contrycode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_phones_user"))
     private User user;
 
     public Phone() {}

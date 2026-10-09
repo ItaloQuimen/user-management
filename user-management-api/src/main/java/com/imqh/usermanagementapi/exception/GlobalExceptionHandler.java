@@ -1,6 +1,8 @@
 package com.imqh.usermanagementapi.exception;
 
 import org.springframework.http.HttpHeaders;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -12,10 +14,29 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    // H2 puede informar la restricción junto con su índice de nombre generado.
+    private static final Pattern EMAIL_CONSTRAINT =
+            Pattern.compile("(?:PUBLIC\\.)?UK_USERS_EMAIL(?: INDEX (?:PUBLIC\\.)?UK_USERS_EMAIL_INDEX_[0-9A-F]+)?",
+                    Pattern.CASE_INSENSITIVE);
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Object> handleIntegrityViolation(DataIntegrityViolationException ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConstraintViolationException violation
+                    && violation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE
+                    && violation.getConstraintName() != null
+                    && EMAIL_CONSTRAINT.matcher(violation.getConstraintName()).matches()) {
+                return handleDuplicateEmail(new DuplicateEmailException());
+            }
+        }
+        return handleUnexpectedError(ex);
+    }
 
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<Object> handleDuplicateEmail(DuplicateEmailException ex) {

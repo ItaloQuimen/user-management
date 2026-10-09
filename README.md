@@ -47,6 +47,14 @@ java -jar .\target\user-management-api-0.0.1-SNAPSHOT.jar
 
 La aplicación arranca en `http://localhost:8080`. La documentación generada está en `/v3/api-docs` y Swagger UI en `/swagger-ui/index.html`.
 
+## Persistencia
+
+El esquema H2 se crea al arrancar mediante [schema.sql](user-management-api/src/main/resources/schema.sql). Spring ejecuta el script antes de inicializar JPA; Hibernate valida las tablas y sus mapeos con `spring.jpa.hibernate.ddl-auto=validate`. La base está en memoria y sus datos desaparecen al terminar el proceso.
+
+El registro guarda usuario, teléfonos y token en una única transacción. La relación de cada teléfono con su usuario es obligatoria y el correo tiene la restricción única `uk_users_email`. Tanto el duplicado detectado previamente como el conflicto de correo durante la escritura devuelven 409; otros errores de integridad devuelven 500 sin detalles internos.
+
+El token se conserva íntegro en una columna `CLOB`, sin el límite anterior de 255 caracteres. Las fechas usan `TIMESTAMP(9)` para preservar la precisión de `LocalDateTime`. Los demás textos mantienen sus columnas de 255 caracteres; no se añaden reglas de validación de entrada por este ajuste del esquema.
+
 ## Uso de la API
 
 ### Registro de usuario

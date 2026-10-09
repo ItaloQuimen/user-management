@@ -60,7 +60,8 @@ class UserManagementApiApplicationTests {
 		assertNotEquals(request.getPassword(), stored.get("PASSWORD"));
 		assertTrue(new BCryptPasswordEncoder().matches(request.getPassword(), (String) stored.get("PASSWORD")));
 		assertNotNull(response.getToken());
-		assertEquals(response.getToken(), stored.get("TOKEN"));
+		assertEquals(response.getToken(), jdbcTemplate.queryForObject(
+				"select token from users where id = ?", String.class, response.getId()));
 		assertEquals(true, stored.get("IS_ACTIVE"));
 		Map<String, Object> storedPhone = jdbcTemplate.queryForMap(
 				"select number, citycode, contrycode from phones where user_id = ?", response.getId());
